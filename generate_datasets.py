@@ -58,9 +58,13 @@ def convert_to_parquet(base_path, dtype_spec, parquet_file):
     df.to_parquet(parquet_file)
 
 def convert_to_hdf(parquet_file):
-    df = dd.read_parquet(parquet_file)
+    df = dd.read_parquet(parquet_file).astype('object')
+    df.repartition(npartitions=100000)
+    df = df[df['DataYear'] == 2014]
 
-    df.to_hdf(base_path + 'dataset.hdf', key='data', mode='w', format='table')
+    print(df.select_dtypes(include=['str']).columns)
+
+    df.to_hdf(base_path + 'dataset.hdf', key = "data", mode = "w", min_itemsize={'violation_description': 50, 'plate_id': 50})
 
 #client = Client(
 #        n_workers=2,

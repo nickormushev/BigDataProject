@@ -10,6 +10,7 @@ From: python:latest
     pip3 install scikit-learn 
     pip3 install tqdm
     pip3 install dask dask_ml
+    pip3 install tables
 
 %runscript
     echo "Running script $*"
