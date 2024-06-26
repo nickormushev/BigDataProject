@@ -24,13 +24,12 @@ dtype_spec = {
 
 # Used for comparison to see if I have columns to rename
 def group_csv_files_by_type():
-    dir_path = '/d/hpc/projects/FRI/bigdata/students/nk93594/'
 
-    csv_files = [f for f in os.listdir(dir_path) if f.endswith('.csv')]
+    csv_files = [f for f in os.listdir(base_path) if f.endswith('.csv')]
 
     first_lines = {}
     for file in csv_files:
-        df = pd.read_csv(os.path.join(dir_path, file), nrows=1)
+        df = pd.read_csv(os.path.join(base_path, file), nrows=1)
         first_lines[file] = tuple(df.columns.tolist())  # Convert to tuple
 
     groups = {}
