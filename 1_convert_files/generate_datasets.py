@@ -56,8 +56,9 @@ def convert_to_parquet(base_path, dtype_spec, parquet_file):
     df['violation_precinct'] = df['violation_precinct'].fillna(0).astype('int64')
     df['issuer_precinct'] = df['issuer_precinct'].fillna(0).astype('int64')
     df['issuer_code'] = df['issuer_code'].fillna(0).astype('int64')
+    df['issue_date'] = dd.to_datetime(df['issue_date'], format='mixed')
 
-    df.to_parquet(parquet_file)
+    df.to_parquet(parquet_file, compression='snappy')
 
 
 def convert_to_hdf():
@@ -86,13 +87,13 @@ def get_len():
 
 if __name__ == '__main__':
     client = Client(
-            n_workers=4,
-            memory_limit="12GB",
+            n_workers=1,
+            memory_limit="60GB",
             local_directory="/tmp",
         )
 
     print("Clients created!")
-    convert_to_hdf()
+    convert_to_parquet(base_path, dtype_spec, parquet_file)
 
     print("Finished!")
     client.close()
