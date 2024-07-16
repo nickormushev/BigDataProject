@@ -48,7 +48,7 @@ def group_csv_files_by_type():
 
 
 def convert_to_parquet(base_path, dtype_spec, parquet_file):
-    df = dd.read_csv(base_path + '*.csv', dtype=dtype_spec)
+    df = dd.read_csv(base_path + 'original_data/*.csv', dtype=dtype_spec)
 
     df['law_section'] = df['law_section'].fillna(0).astype('int64')
     df['vehicle_year'] = df['vehicle_year'].fillna(0).astype('int64')
@@ -58,7 +58,7 @@ def convert_to_parquet(base_path, dtype_spec, parquet_file):
     df['issuer_code'] = df['issuer_code'].fillna(0).astype('int64')
     df['issue_date'] = dd.to_datetime(df['issue_date'], format='mixed')
 
-    df.to_parquet(parquet_file, compression='snappy')
+    df.repartition(partition_size="100MB").to_parquet(parquet_file, compression='snappy')
 
 
 def convert_to_hdf():
