@@ -11,6 +11,7 @@ From: python:latest
     pip3 install tqdm
     pip3 install dask dask_ml
     pip3 install tables
+    pip3 install duckdb
 
 %runscript
     echo "Running script $*"
