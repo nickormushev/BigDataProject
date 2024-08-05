@@ -12,6 +12,10 @@ base_path = '/d/hpc/projects/FRI/bigdata/students/cb17769/'
 # Read the Parquet file into a Dask DataFrame
 dataset = dd.read_parquet(f'{base_path}dataset.parquet')
 
+length_dataset = dataset.shape[0].compute()
+print(f"Dataset has {length_dataset} rows")
+# 140423664
+
 # convert the date to the same format as the weather data
 dataset['issue_date'] = dd.to_datetime(dataset["issue_date"], format="mixed")
 # add M to the end of the time to read it from 12 hour format
@@ -25,26 +29,12 @@ dataset['issue_date'] = dd.to_datetime(dataset["issue_date"].dt.strftime('%Y-%m-
 dataset = dataset.drop(["violation_time"], axis=1)
 
 # Vehicle expiration date
-initial_nan = dataset['vehicle_expiration_date'].isna().sum()
 dataset['vehicle_expiration_date'] = dd.to_datetime(dataset['vehicle_expiration_date'], format='%Y%m%d', errors='coerce')
-final_nan = dataset['vehicle_expiration_date'].isna().sum()
-
-print('Vehicle expiration date: ')
-print(f"Percentage of initial NaNs: {initial_nan / len(dataset) * 100:.2f}%")
-print(f"Percentage of final NaNs: {final_nan / len(dataset) * 100:.2f}%")
-print(f"Percentage of NaNs removed: {(final_nan - initial_nan) / len(dataset) * 100:.2f}%")
 
 # Fist observation datetime
-initial_nan = dataset['time_first_observed'].isna().sum()
 dataset['time_first_observed'] = dataset["time_first_observed"].str.upper() + "M"
 dataset['time_first_observed'] = dataset['time_first_observed'].str.replace(r'^00', '12', regex=True)
 dataset['time_first_observed'] = dd.to_datetime(dataset['time_first_observed'], format='%I%M%p', errors='coerce')
-final_nan = dataset['time_first_observed'].isna().sum()
-
-print('First observation datetime:')
-print(f"Percentage of initial NaNs: {initial_nan / len(dataset) * 100:.2f}%")
-print(f"Percentage of final NaNs: {final_nan / len(dataset) * 100:.2f}%")
-print(f"Percentage of NaNs removed: {(final_nan - initial_nan) / len(dataset) * 100:.2f}%")
 
 # Date first observed
 # replace 0 with NaN
@@ -52,14 +42,7 @@ dataset['date_first_observed'] = dataset['date_first_observed'].replace('0', Non
 # replace 0001-01-03T12:00:00.000 with NaN
 dataset['date_first_observed'] = dataset['date_first_observed'].replace('0001-01-03T12:00:00.000', None)
 
-initial_nan = dataset['date_first_observed'].isna().sum()
 dataset['date_first_observed'] = dd.to_datetime(dataset['date_first_observed'], format='%Y%m%d', errors='coerce')
-final_nan = dataset['date_first_observed'].isna().sum()
-
-print('Date first observed:')
-print(f"Percentage of initial NaNs: {initial_nan / len(dataset) * 100:.2f}%")
-print(f"Percentage of final NaNs: {final_nan / len(dataset) * 100:.2f}%")
-print(f"Percentage of NaNs removed: {(final_nan - initial_nan) / len(dataset) * 100:.2f}%")
 
 # merge the date and time
 dataset['date_first_observed'] = dd.to_datetime(dataset["date_first_observed"].dt.strftime('%Y-%m-%d') + ' ' + dataset["time_first_observed"].dt.strftime('%H:%M:%S'))
@@ -119,5 +102,5 @@ dataset = dataset.persist()
 print("Data computed")
 
 # Save the data as a new Parquet file
-dataset.to_parquet('/d/hpc/projects/FRI/bigdata/students/cb17769/cleaned_data.parquet')
+dataset.to_parquet(f'{base_path}cleaned_data.parquet', compression='snappy')
 print("Data cleaning complete")
