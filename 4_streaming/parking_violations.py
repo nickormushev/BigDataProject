@@ -1,0 +1,42 @@
+
+import faust
+
+class ParkingViolation(faust.Record, validation=True):
+    summons_number: int
+    plate_id: str
+    registration_state: str
+    plate_type: str
+    violation_code: int
+    vehicle_body_type: str
+    vehicle_make: str
+    issuing_agency: str
+    street_code: str
+    vehicle_expiration_date: str
+    violation_location: str
+    violation_precinct: str
+    issuer_precinct: str
+    issuer_code: str
+    issuer_command: str
+    issuer_squad: str
+    violation_county: str
+    violation_in_front_of_or_opposite: str
+    house_number: str
+    street_name: str
+    intersecting_street: str
+    date_first_observed: str
+    law_section: str
+    sub_division: str
+    violation_legal_code: str
+    days_parking_in_effect: str
+    from_hours_in_effect: str
+    to_hours_in_effect: str
+    vehicle_color: str
+    unregistered_vehicle: str
+    vehicle_year: str
+    meter_number: str
+    feet_from_curb: str
+    violation_post_code: str
+    violation_description: str
+    no_standing_or_stopping_violation: str
+    hydrant_violation: str
+    double_parking_violation: str
