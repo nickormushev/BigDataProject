@@ -6,7 +6,7 @@ class ParkingViolation(faust.Record, validation=True):
     plate_id: str
     registration_state: str
     plate_type: str
-    violation_code: int
+    violation_code: str
     vehicle_body_type: str
     vehicle_make: str
     issuing_agency: str
@@ -40,3 +40,5 @@ class ParkingViolation(faust.Record, validation=True):
     no_standing_or_stopping_violation: str
     hydrant_violation: str
     double_parking_violation: str
+    latitude: str
+    longitude: str
