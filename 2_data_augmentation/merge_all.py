@@ -37,12 +37,11 @@ if __name__ == '__main__':
 
         elif pkName == 'weather':
             # Merging weather on borough and date
-            merge_left_on = ['violation_county', 'issue_date']
-            merge_right_on = ['borough', 'date']
+            merge_left_on = ["_date", "_hour", "violation_county"]
+            merge_right_on = ["date", "hour", "borough"]
             dataset['issue_date'] = dd.to_datetime(dataset['issue_date'])
             dataset['_date'] = dataset['issue_date'].dt.date
             dataset['_hour'] = dataset['issue_date'].dt.hour
-
         else: 
             # Merging attr and biz on borough and street
             merge_left_on = ['violation_county', 'street_code']
