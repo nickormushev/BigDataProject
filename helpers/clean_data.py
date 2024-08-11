@@ -95,6 +95,18 @@ county_to_borough = {
 }
 
 dataset['violation_county'] = dataset['violation_county'].replace(county_to_borough)
+
+dataset = dataset.dropna(subset=['violation_county'])
+
+borough_to_code = {
+  'NY': 1,
+  'BX': 2,
+  'K': 3,
+  'Q': 4,
+  'R': 5
+}
+
+dataset['violation_county'] = dataset['violation_county'].replace(borough_to_code)
 print("County names translated to borough names")
 
 # compute
