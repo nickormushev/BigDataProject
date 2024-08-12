@@ -2,7 +2,7 @@ import dask.dataframe as dd
 from dask.distributed import Client
 from dask_jobqueue import SLURMCluster
 
-cluster = SLURMCluster(cores=5, processes=1, memory="60GB")
+cluster = SLURMCluster(cores=5, processes=1, memory="80GB")
 client = Client(cluster)
 cluster.scale(jobs=5)
 
@@ -16,7 +16,7 @@ if __name__ == '__main__':
     dataset['issue_date'] = dd.to_datetime(dataset['issue_date'])
     
     all_datasets = ['events', 'hs', 'attr', 'biz', 'weather']
-    datasets_to_merge = ['weather']
+    datasets_to_merge = ['events', 'hs', 'attr', 'biz', 'weather']
 
     for pkName in datasets_to_merge:
         mergeDf = dd.read_parquet(base_path + f'augmented_data/{pkName}.parquet')
@@ -27,6 +27,7 @@ if __name__ == '__main__':
             # Merging events on borough and date
             merge_left_on = ['violation_county', 'issue_date']
             merge_right_on = ['borough', 'date']
+            mergeDf['date'] = dd.to_datetime(mergeDf['date'])
 
         elif pkName == 'hs':
             # Merging schools on borough, street and year
@@ -39,7 +40,8 @@ if __name__ == '__main__':
             # Merging weather on borough and date
             merge_left_on = ['violation_county', 'issue_date']
             merge_right_on = ['borough', 'date']
-            dataset['issue_date'] = dd.to_datetime(dataset['issue_date'])
+            mergeDf['date'] = dd.to_datetime(mergeDf['date'])
+            
             dataset['_date'] = dataset['issue_date'].dt.date
             dataset['_hour'] = dataset['issue_date'].dt.hour
 
@@ -52,12 +54,14 @@ if __name__ == '__main__':
         
         # Perform the merge
         dataset = dataset.merge(mergeDf, left_on=merge_left_on, right_on=merge_right_on, how='left', suffixes=('', f'_{pkName}'))
-        
+
         # Drop the columns from the right DataFrame and the columns that start with '_'
         columns_to_drop = [col for col in dataset.columns if col.endswith(f'_{pkName}')] + \
                             [col for col in dataset.columns if col.startswith("_")]
         
         dataset = dataset.drop(columns_to_drop, axis=1)
+
+        dataset = dataset.persist()
 
     compression = 'snappy'
     print(f"Saving parquet with compression {compression}")
