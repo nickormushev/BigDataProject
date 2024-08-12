@@ -6,7 +6,15 @@ import math
 from datetime import datetime
 from parking_violations import ParkingViolation
 from stream_stats import StreamStats, StreamDateStats, CounterDateStats
-from collections import Counter
+from collections import Counter, deque
+from river.cluster import DenStream
+import matplotlib.pyplot as plt
+import time
+
+# Initialize lists to store data points and their cluster IDs
+buffer_size = 100000
+data_points = deque(maxlen=buffer_size)
+cluster_ids = deque(maxlen=buffer_size)
 
 topic = "parking_violations"
 
@@ -17,6 +25,9 @@ violations_topic = app.topic(topic, value_type=ParkingViolation)
 
 @app.agent(violations_topic)
 async def process_violations(violations: List[ParkingViolation]):
+    # Initialize the DenStream
+    denstream = DenStream(epsilon=0.01, mu=30, beta=0.2)
+
     all_data_stats = StreamDateStats()
     borough_stats = CounterDateStats()
     streets_stats = CounterDateStats()
@@ -28,6 +39,14 @@ async def process_violations(violations: List[ParkingViolation]):
     current_year = None
     current_month = None
     current_day = None
+
+    code_to_borough = {
+        1: "Manhattan",
+        2: "Bronx",
+        3: "Brooklyn",
+        4: "Queens",
+        5: "Staten Island"
+    }
 
     async for violation in violations:
         violation.issue_date = datetime.strptime(violation.issue_date, '%Y-%m-%d %H:%M:%S')
@@ -63,7 +82,8 @@ async def process_violations(violations: List[ParkingViolation]):
             print(f"- Overall stats: total: {tmp_all_data_stats.total_count}, {tmp_all_data_stats.day}")
             print("- Borough stats:")
             for borough, stats in tmp_borough_stats.items():
-                print(f".      {borough} stats: total: {stats.total_count}, {stats.day}")
+                borough_name = code_to_borough[int(float(borough))]
+                print(f".      {borough_name} stats: total: {stats.total_count}, {stats.day}")
             print("- Most common streets:")
             for idx, street in enumerate(tmp_streets_stats.most_commons(10)):
                 print(f".      Street {idx + 1} ({street[0]}) stats: total: {street[1].total_count}, {street[1].day}")
@@ -90,7 +110,8 @@ async def process_violations(violations: List[ParkingViolation]):
             print(f"- Overall stats: total: {tmp_all_data_stats.total_count}, {tmp_all_data_stats.month}")
             print("- Borough stats:")
             for borough, stats in tmp_borough_stats.items():
-                print(f".      {borough} stats: total: {stats.total_count}, {stats.month}")
+                borough_name = code_to_borough[int(float(borough))]
+                print(f".      {borough_name} stats: total: {stats.total_count}, {stats.month}")
             print("- Most common streets:")
             for idx, street in enumerate(tmp_streets_stats.most_commons(10)):
                 print(f".      Street {idx + 1} ({street[0]}) stats: total: {street[1].total_count}, {street[1].month}")
@@ -133,3 +154,30 @@ async def process_violations(violations: List[ParkingViolation]):
         tmp_all_data_stats.increase()
         tmp_borough_stats.increase(violation.violation_county)
         tmp_streets_stats.increase(violation.street_code)
+
+        # update the denstream with the current violation
+        denstream.learn_one({"latitude": float(violation.latitude), "longitude": float(violation.longitude)})
+
+        # Store the data point and its cluster ID
+        data_points.append((float(violation.latitude), float(violation.longitude)))
+        cluster_ids.append(denstream.predict_one({"latitude": float(violation.latitude), "longitude": float(violation.longitude)}))
+
+        if all_data_stats.total_count % 100000 == 0 and all_data_stats.total_count != 0:
+            print(f"Denstream stats: {denstream.n_clusters}")
+
+            if denstream.n_clusters > 1:
+                # Plot the clusters
+                plt.figure(figsize=(10, 6))
+                plt.scatter(
+                    [point[0] for point in data_points],
+                    [point[1] for point in data_points],
+                    c=cluster_ids,
+                    cmap='viridis',
+                    marker='o',
+                    alpha=0.6
+                )
+                plt.title('DenStream Clusters')
+                plt.xlabel('Latitude')
+                plt.ylabel('Longitude')
+                plt.colorbar(label='Cluster ID')
+                plt.show()

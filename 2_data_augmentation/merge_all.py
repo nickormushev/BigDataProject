@@ -44,7 +44,6 @@ if __name__ == '__main__':
             
             dataset['_date'] = dataset['issue_date'].dt.date
             dataset['_hour'] = dataset['issue_date'].dt.hour
-
         else: 
             # Merging attr and biz on borough and street
             merge_left_on = ['violation_county', 'street_code']

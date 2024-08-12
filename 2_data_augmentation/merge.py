@@ -1,3 +1,4 @@
+# Dask code to merge a dataset with the main parking violations dataset
 import dask.dataframe as dd
 from dask.distributed import Client
 import sys
@@ -20,7 +21,7 @@ if __name__ == '__main__':
     pk = dd.read_parquet(base_path + 'dataset_2.parquet')
     mergeDf = dd.read_parquet(base_path + f'{pkName}.parquet')
 
-    pk['street_code1or2'] = pk['street_code1'].where(pk['street_code1'] != 0, pk['street_code2']).astype("string")
+    pk['street_code1or2'] = pk['street_code1'].where(pk['street_code1'] != 0, pk['street_code2'].where(pk['street_code2'] != 0, pk['street_code3'])).astype("string")
     mergeDf['street_code'] = mergeDf['street_code'].astype("string")
 
     print(f"Merging {pkName}")
@@ -32,8 +33,17 @@ if __name__ == '__main__':
         merged = pk.merge(mergeDf, left_on=['violation_county', 'issue_date'], right_on=['borough', 'date'], how='left')
     elif pkName == 'hs':
         merged = pk.merge(mergeDf, left_on=['violation_county', 'street_code1or2', 'DataYear'], right_on=['borough', 'street_code', 'DataYear'], how='left')
+
+    elif pkName == 'weather':
+        pk['issue_date'] = dd.to_datetime(pk['issue_date'])
+        pk['_date'] = pk['issue_date'].dt.date
+        pk['_hour'] = pk['issue_date'].dt.hour
+        merged = pk.merge(mergeDf, left_on=['_date', '_hour', 'violation_county'], right_on=['date', 'hour', 'borough'], how='left')
+
+        merged = merged.drop(['_date', '_hour'], axis=1)
     else:
         merged = pk.merge(mergeDf, left_on=['violation_county', 'street_code1or2'], right_on=['borough', 'street_code'], how='left')
+
 
     print(f"Saving parquet with compression {compression}")
     merged.to_parquet(base_path + f'dataset_with_{pkName}.parquet', compression=compression)
