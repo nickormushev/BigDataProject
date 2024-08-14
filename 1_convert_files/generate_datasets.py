@@ -2,7 +2,7 @@ import dask.dataframe as dd
 from dask.distributed import Client
 import pandas as pd
 import os
-import glob
+import sys
 
 
 base_path = '/d/hpc/projects/FRI/bigdata/students/nk93594/'
@@ -62,12 +62,8 @@ def convert_to_parquet(base_path, dtype_spec, parquet_file):
 
 
 def convert_to_hdf():
-    # Get a list of all CSV files in the directory
-    csv_files = glob.glob(base_path + '*.csv')
-    print("-------------------")
-    
     for date in ['2014', '2015', '2016', '2017', '2018', '2019', '2020', '2021', '2022', '2023', '2024']:
-        ddf = dd.read_csv(base_path + f'{date}.csv', dtype=object)
+        ddf = dd.read_csv(base_path + f'original_data/{date}.csv', dtype=object)
         ddf.to_hdf(f"{base_path}/data_final.hd5", key="data", mode='a',
                 min_itemsize={'street_name': 3505, 'violation_description':72, 'violation_post_code': 547,
                 'no_standing_or_stopping_violation': 38, 'double_parking_violation': 38, 'hydrant_violation': 26},
@@ -93,7 +89,13 @@ if __name__ == '__main__':
         )
 
     print("Clients created!")
-    convert_to_parquet(base_path, dtype_spec, parquet_file)
+
+    format = sys.argv[1]
+
+    if format == 'hdf5':
+        convert_to_hdf()
+    else:
+        convert_to_parquet(base_path, dtype_spec, parquet_file)
 
     print("Finished!")
     client.close()
