@@ -28,7 +28,9 @@ if __name__ == '__main__':
     mergeDf = dd.read_parquet(base_path + f'{pkName}.parquet')
 
     pk['street_code1or2'] = pk['street_code1'].where(pk['street_code1'] != 0, pk['street_code2'].where(pk['street_code2'] != 0, pk['street_code3'])).astype("string")
-    mergeDf['street_code'] = mergeDf['street_code'].astype("string")
+    
+    if 'street_code' in mergeDf.columns:
+        mergeDf['street_code'] = mergeDf['street_code'].astype("string")
 
     print(f"Merging {pkName}")
 
