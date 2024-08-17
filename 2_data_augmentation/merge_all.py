@@ -20,7 +20,7 @@ if __name__ == '__main__':
     dataset['issue_date'] = dd.to_datetime(dataset['issue_date'])
     
     all_datasets = ['events', 'hs', 'attr', 'biz', 'weather']
-    datasets_to_merge = ['events', 'hs', 'attr', 'biz', 'weather']
+    datasets_to_merge = ['weather']
 
     for pkName in datasets_to_merge:
         mergeDf = dd.read_parquet(base_path + f'augmented_data/{pkName}.parquet')
@@ -47,7 +47,7 @@ if __name__ == '__main__':
             mergeDf['date'] = dd.to_datetime(mergeDf['date'])
             
             dataset['_date'] = dataset['issue_date'].dt.date
-            dataset['_hour'] = dataset['issue_date'].dt.hour
+            dataset['_hour'] = dataset['issue_date'].dt.hour.fillna(0).astype(int)
         else: 
             # Merging attr and biz on borough and street
             merge_left_on = ['violation_county', 'street_code']
