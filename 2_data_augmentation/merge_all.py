@@ -20,7 +20,7 @@ if __name__ == '__main__':
     dataset['issue_date'] = dd.to_datetime(dataset['issue_date'])
     
     all_datasets = ['events', 'hs', 'attr', 'biz', 'weather']
-    datasets_to_merge = ['weather']
+    datasets_to_merge = ['events', 'hs', 'attr', 'biz', 'weather']
 
     for pkName in datasets_to_merge:
         mergeDf = dd.read_parquet(base_path + f'augmented_data/{pkName}.parquet')
@@ -90,4 +90,4 @@ cluster.close()
 # biz:  663 seconds
 #        -> no saving 5.6 sec
 # merging all:  1831 seconds
-#        -> saving 14 sec
+#        -> no saving 14 sec
