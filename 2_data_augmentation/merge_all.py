@@ -29,9 +29,11 @@ if __name__ == '__main__':
 
         if pkName == 'events':
             # Merging events on borough and date
-            merge_left_on = ['violation_county', 'issue_date']
+            merge_left_on = ['violation_county', '_date']
             merge_right_on = ['borough', 'date']
             mergeDf['date'] = dd.to_datetime(mergeDf['date'])
+
+            dataset['_date'] = dataset['issue_date'].dt.date
 
         elif pkName == 'hs':
             # Merging schools on borough, street and year
