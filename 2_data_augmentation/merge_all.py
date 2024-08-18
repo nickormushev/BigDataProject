@@ -25,20 +25,22 @@ if __name__ == '__main__':
     for pkName in datasets_to_merge:
         mergeDf = dd.read_parquet(base_path + f'augmented_data/{pkName}.parquet')
 
+        if 'street_code' in mergeDf.columns:
+            mergeDf['street_code'] = mergeDf['street_code'].astype("string")
+
         print(f"Merging {pkName}")
 
         if pkName == 'events':
             # Merging events on borough and date
-            merge_left_on = ['violation_county', 'issue_date']
+            merge_left_on = ['violation_county', '_date']
             merge_right_on = ['borough', 'date']
-            mergeDf['date'] = dd.to_datetime(mergeDf['date'])
+            
+            dataset['_date'] = dd.to_datetime(dataset['issue_date'].dt.date)
 
         elif pkName == 'hs':
             # Merging schools on borough, street and year
             merge_left_on = ['violation_county', 'street_code', 'DataYear']
             merge_right_on = ['borough', 'street_code', 'DataYear']
-            # Convert street_code to string
-            mergeDf['street_code'] = mergeDf['street_code'].astype("string")
 
         elif pkName == 'weather':
             # Merging weather on borough and date
@@ -47,12 +49,10 @@ if __name__ == '__main__':
             
             dataset['_date'] = dataset['issue_date'].dt.date
             dataset['_hour'] = dataset['issue_date'].dt.hour.fillna(12).astype(int)
-        else: 
+        else:
             # Merging attr and biz on borough and street
             merge_left_on = ['violation_county', 'street_code']
             merge_right_on = ['borough', 'street_code']
-            # Convert street_code to string
-            mergeDf['street_code'] = mergeDf['street_code'].astype("string")
         
         # Perform the merge
         dataset = dataset.merge(mergeDf, left_on=merge_left_on, right_on=merge_right_on, how='left', suffixes=('', f'_{pkName}'))
