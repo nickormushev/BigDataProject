@@ -46,7 +46,7 @@ if __name__ == '__main__':
     elif pkName == 'weather':
         pk['issue_date'] = dd.to_datetime(pk['issue_date'])
         pk['_date'] = pk['issue_date'].dt.date
-        pk['_hour'] = pk['issue_date'].dt.hour
+        pk['_hour'] = pk['issue_date'].dt.hour.fillna(12).astype(int)
         merged = pk.merge(mergeDf, left_on=['_date', '_hour', 'violation_county'], right_on=['date', 'hour', 'borough'], how='left')
 
         merged = merged.drop(['_date', '_hour'], axis=1)

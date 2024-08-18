@@ -37,6 +37,8 @@ if __name__ == '__main__':
             
             dataset['_date'] = dd.to_datetime(dataset['issue_date'].dt.date)
 
+            dataset['_date'] = dataset['issue_date'].dt.date
+
         elif pkName == 'hs':
             # Merging schools on borough, street and year
             merge_left_on = ['violation_county', 'street_code', 'DataYear']
