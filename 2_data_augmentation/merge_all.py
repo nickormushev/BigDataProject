@@ -20,7 +20,7 @@ if __name__ == '__main__':
     dataset['issue_date'] = dd.to_datetime(dataset['issue_date'])
     
     all_datasets = ['events', 'hs', 'attr', 'biz', 'weather']
-    datasets_to_merge = ['events', 'hs', 'attr', 'biz', 'weather']
+    datasets_to_merge = ['hs']
 
     for pkName in datasets_to_merge:
         mergeDf = dd.read_parquet(base_path + f'augmented_data/{pkName}.parquet')
@@ -36,8 +36,6 @@ if __name__ == '__main__':
             merge_right_on = ['borough', 'date']
             
             dataset['_date'] = dd.to_datetime(dataset['issue_date'].dt.date)
-
-            dataset['_date'] = dataset['issue_date'].dt.date
 
         elif pkName == 'hs':
             # Merging schools on borough, street and year
@@ -81,14 +79,7 @@ cluster.close()
 
 # Time to run:
 # weather:  542 seconds
-#        -> no saving 1.4 sec
 # hs: 316 seconds
-#        -> no saving 1.1 sec
-# events: 410 seconds
-#        -> no saving 4.9 sec
-# attr: 586 seconds
-#        -> no saving 5.9 sec 
+# events: 1013 seconds
+# attr: 237 seconds
 # biz:  663 seconds
-#        -> no saving 5.6 sec
-# merging all:  1831 seconds
-#        -> no saving 14 sec
