@@ -1,10 +1,22 @@
 import dask.dataframe as dd
 from dask.distributed import Client
 from dask_jobqueue import SLURMCluster
+import pandas as pd
 
 cluster = SLURMCluster(cores=5, processes=1, memory="60GB")
 client = Client(cluster)
 cluster.scale(jobs=5)
+
+### For more info refer to the notebook
+
+def format_hour(hour_series):
+    hour_series = hour_series.str.upper() + "M"
+    hour_series = hour_series.str.replace(r'^00', '12', regex=True)
+    return dd.to_datetime(hour_series, format="%I%M%p", errors="coerce")
+
+def pad_parking_days(parking_days):
+    parking_days = parking_days.replace(' ', 'B')
+    return parking_days.ljust(7, 'B')
 
 try:
   # Define the base path of the Parquet file
@@ -17,39 +29,33 @@ try:
   print(f"Dataset has {length_dataset} rows")
   # 140423664
 
-  # convert the date to the same format as the weather data
-  dataset['issue_date'] = dd.to_datetime(dataset["issue_date"], format="mixed")
-  # add M to the end of the time to read it from 12 hour format
-  dataset['violation_time'] = dataset["violation_time"].str.upper() + "M"
-  # replace the values that starts with 00 to 12
-  dataset['violation_time'] = dataset['violation_time'].str.replace(r'^00', '12', regex=True)
-  # convert the time to 24 hour format
-  dataset['violation_time'] = dd.to_datetime(dataset["violation_time"], format="%I%M%p", errors="coerce")
-  # combine the date and time
-  dataset['issue_date'] = dd.to_datetime(dataset["issue_date"].dt.strftime('%Y-%m-%d') + ' ' + dataset["violation_time"].dt.strftime('%H:%M:%S'))
-  dataset = dataset.drop(["violation_time"], axis=1)
-
-  # Vehicle expiration date
-  dataset['vehicle_expiration_date'] = dd.to_datetime(dataset['vehicle_expiration_date'], format='%Y%m%d', errors='coerce')
-
+  ## Violation
+  # Dates
   # Fist observation datetime
-  dataset['time_first_observed'] = dataset["time_first_observed"].str.upper() + "M"
-  dataset['time_first_observed'] = dataset['time_first_observed'].str.replace(r'^00', '12', regex=True)
-  dataset['time_first_observed'] = dd.to_datetime(dataset['time_first_observed'], format='%I%M%p', errors='coerce')
+  dataset['time_first_observed'] = format_hour(dataset['time_first_observed'])
 
   # Date first observed
-  # replace 0 with NaN
   dataset['date_first_observed'] = dataset['date_first_observed'].replace('0', None)
-  # replace 0001-01-03T12:00:00.000 with NaN
   dataset['date_first_observed'] = dataset['date_first_observed'].replace('0001-01-03T12:00:00.000', None)
-
   dataset['date_first_observed'] = dd.to_datetime(dataset['date_first_observed'], format='%Y%m%d', errors='coerce')
-
-  # merge the date and time
+  
+  # merge Datetime first observed
   dataset['date_first_observed'] = dd.to_datetime(dataset["date_first_observed"].dt.strftime('%Y-%m-%d') + ' ' + dataset["time_first_observed"].dt.strftime('%H:%M:%S'))
   dataset = dataset.drop(["time_first_observed"], axis=1)
 
-  # translate the county names to the borough names
+  # Issue date
+  dataset['issue_date'] = dd.to_datetime(dataset["issue_date"], format="mixed")
+  dataset['violation_time'] = format_hour(dataset['violation_time'])
+
+  # merge Datetime issue date
+  dataset['issue_date'] = dd.to_datetime(dataset["issue_date"].dt.strftime('%Y-%m-%d') + ' ' + dataset["violation_time"].dt.strftime('%H:%M:%S'))
+  dataset = dataset.drop(["violation_time"], axis=1)
+
+  # Location and codes
+  dataset['violation_code'] = dataset['violation_code'].fillna(0).astype(int)
+  dataset['violation_code'] = dataset['violation_code'].replace(0, None)
+
+  # Violation county
   county_to_borough = {
       "BRONX": "BX", # Bronx
       "BX": "BX",
@@ -99,9 +105,80 @@ try:
 
   dataset = dataset.dropna(subset=['violation_county'])
 
+  dataset['street_code'] = dataset['street_code1'].where(dataset['street_code1'] != 0, dataset['street_code2'].where(dataset['street_code2'] != 0, dataset['street_code3'])).astype("string")
+  dataset['street_code'] = dataset['street_code'].replace('0', None)
+  dataset = dataset.drop(["street_code1", "street_code2", "street_code3"], axis=1)
+
+  # Location is the same as violation_precint
+  dataset = dataset.drop(["violation_location"], axis=1)
+  
+  ## Vehicle
+  dataset['vehicle_make'] = dataset['vehicle_make'].str.upper()
+
+  vehicle_make_counts = dataset['vehicle_make'].value_counts()
+  vehicle_make_counts = vehicle_make_counts[vehicle_make_counts < 100]
+  dataset['vehicle_make'] = dataset['vehicle_make'].where(~dataset['vehicle_make'].isin(vehicle_make_counts.index), "OTHER")
+
+  # Dates
+  current_year = pd.Timestamp.now().year
+  dataset['vehicle_year'] = dataset['vehicle_year'].where(dataset['vehicle_year'] <= current_year, None)
+  dataset['vehicle_year'] = dataset['vehicle_year'].replace(0, None)
+
+  dataset['vehicle_expiration_date'] = pd.to_datetime(dataset['vehicle_expiration_date'], format='%Y%m%d', errors='coerce')
+
+  ## Vehicle Registration
+  codes = "AL ALABAMA MT MONTANA AK ALASKA NE NEBRASKA AZ ARIZONA NV NEVADA AR ARKANSAS NH NEW HAMPSHIRE CA CALIFORNIA NJ NEW JERSEY CO COLORADO NM NEW MEXICO CT CONNECTICUT NY NEW YORK DE DELAWARE NC NORTH CAROLINA FL FLORIDA ND NORTH DAKOTA GA GEORGIA OH OHIO HI HAWAII OK OKLAHOMA ID IDAHO OR OREGON IL ILLINOIS PA PENNSYLVANIA IN INDIANA RI RHODE ISLAND IA IOWA SC SOUTH CAROLINA KS KANSAS SD SOUTH DAKOTA KY KENTUCKY TN TENNESSEE LA LOUISIANA TX TEXAS ME MAINE UT UTAH MD MARYLAND VT VERMONT MA MASSACHUSETTS VA VIRGINIA MI MICHIGAN WA WASHINGTON MN MINNESOTA WV WEST VIRGINIA MS MISSISSIPPI WI WISCONSIN MO MISSOURI WY WYOMING AB Alberta ON Ontario BC British Columbia PE Prince Edward Island FO Foreign QB Quebec MB Manitoba SK Saskatchewan MX Mexico GV U.S. Government NB New Brunswick DP U.S. State Dept. NF Newfoundland DC Washington D.C. NT Northwest Territories YT Yukon Territory NS Nova Scotia"
+  codes = codes.split()
+  codes = [code for code in codes if code.isupper() and len(code) == 2]
+  dataset['registration_state'] = dataset['registration_state'].where(dataset['registration_state'].isin(codes), None)
+  
+
+  plate_ids = "AGR Agricultural Vehicle MCD Motorcycle Dealer AMB Ambulance MCL Marine Corps League ARG Air National Guard MED Medical Doctor ATD All Terrain Deale MOT Motorcycle ATV All Terrain Vehicle NLM Naval Militia AYG Army National Guard NYA New York Assembly BOB Birthplace of Baseball NYC New York City Council BOT Boat NYS New York Senate CBS County Bd. of Supervisors OMF Omnibus Public Service CCK County Clerk OML Livery CHC  Household Carrier (Com) OMO Omnibus Out-of-State CLG County Legislators OMR Bus CMB Combination - Connecticut OMS Rental CME  Coroner Medical Examiner OMT Taxi CMH Congress. Medal of Honor OMV Omnibus Vanity COM Commercial Vehicle ORC Organization (Com) CSP Sports (Com) ORG Organization (Pas) DLR Dealer PAS Passenger EDU Educator PHS Pearl Harbor Survivors FAR Farm vehicle PPH Purple Heart FPW Former Prisoner of War PSD Political Subd. (Official) GAC Governor's Additional Car RGC Regional (Com) GFC Gift Certificate RGL Regional (Pas) GSC Governor's Second Car SCL School Car GSM Gold Star Mothers SNO Snowmobile HAC Ham Operator Comm SOS Survivors of the Shield HAM Ham Operator SPC Special Purpose Comm. HIF Special Reg.Hearse SPO Sports HIR Hearse Coach SRF Special Passenger - Vanity HIS Historical Vehicle SRN Special Passenger - Judges HOU House/Coach Trailer STA State Agencies HSM Historical Motorcycle STG State National Guard IRP Intl. Registration Plan SUP Justice Supreme Court ITP In Transit Permit TOW Tow Truck JCA Justice Court of Appeals TRA Transporter JCL Justice Court of Claims THC Household Carrier Tractor JSC Supreme Court Appl. Div TRC Tractor Regular JWV Jewish War Veterans TRL Trailer Regular LMA Class A Limited Use Mtrcyl. USC U. S. Congress LMB Class B Limited Use Mtrcyl. USS U. S. Senate LMC Class C Limited Use Mtrcyl. VAS Voluntary Ambulance Svc. LOC Locomotive VPL Van Pool LTR Light Trailer WUG World University Games LUA Limited Use Automobile"
+  plate_ids = plate_ids.split()
+  plate_ids = [plate_id for plate_id in plate_ids if plate_id.isupper() and len(plate_id) == 3]
+  dataset['plate_type'] = dataset['plate_type'].where(dataset['plate_type'].isin(plate_ids), None)
+
+  # Plate ID
+  # Upper case, not blank plate, between 5 and 8 characters, only letters and numbers
+  dataset['plate_id'] = dataset['plate_id'].str.upper()
+  dataset['plate_id'] = dataset['plate_id'].replace('BLANKPLATE', None)
+  dataset['plate_id'] = dataset['plate_id'].where(dataset['plate_id'].str.len() >= 5, None)
+  dataset['plate_id'] = dataset['plate_id'].where(dataset['plate_id'].str.len() <= 8, None)
+  dataset['plate_id'] = dataset['plate_id'].where(dataset['plate_id'].str.match(r'^[A-Z0-9]*$'), None)
+
+  ## Issuer and law
+  dataset['issuer_precinct'] = dataset['issuer_precinct'].replace(0, None)
+  dataset['issuer_code'] = dataset['issuer_code'].replace(0, None)
+
+  dataset['law_section'] = dataset['law_section'].replace(0, None)
+
+  # parking days
+  dataset['days_parking_in_effect'] = dataset['days_parking_in_effect'].fillna('')
+  dataset['days_parking_in_effect'] = dataset['days_parking_in_effect'].apply(pad_parking_days)
+
+  # hours in effect
+  dataset['from_hours_in_effect'] = format_hour(dataset['from_hours_in_effect']).dt.time
+  dataset['to_hours_in_effect'] = format_hour(dataset['to_hours_in_effect']).dt.time
+  
+  # unregistered vehicle
+  dataset['unregistered_vehicle'] = dataset['unregistered_vehicle'].notna() & (dataset['unregistered_vehicle'] == '0')
+  dataset['unregistered_vehicle'] = dataset['unregistered_vehicle'].astype(bool)
+  
+  dataset['meter_number'] = dataset['meter_number'].replace('-', None)
+
   # compute
   dataset = dataset.persist()
   print("Data computed")
+
+  # print value count of no_standing_or_stopping_violation, hydrant_violation and double_parking_violation
+  print("Value counts of no_standing_or_stopping_violation")
+  print(dataset['no_standing_or_stopping_violation'].value_counts().compute())
+
+  print("Value counts of hydrant_violation")
+  print(dataset['hydrant_violation'].value_counts().compute())
+
+  print("Value counts of double_parking_violation")
+  print(dataset['double_parking_violation'].value_counts().compute())
 
   # Save the data as a new Parquet file
   dataset.to_parquet(f'{base_path}cleaned_data.parquet', compression='snappy')
