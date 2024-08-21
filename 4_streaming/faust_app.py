@@ -162,22 +162,26 @@ async def process_violations(violations: List[ParkingViolation]):
         data_points.append((float(violation.latitude), float(violation.longitude)))
         cluster_ids.append(denstream.predict_one({"latitude": float(violation.latitude), "longitude": float(violation.longitude)}))
 
-        if all_data_stats.total_count % 100000 == 0 and all_data_stats.total_count != 0:
+        if all_data_stats.total_count % 200000 == 0 and all_data_stats.total_count != 0:
             print(f"Denstream stats: {denstream.n_clusters}")
 
             if denstream.n_clusters > 1:
                 # Plot the clusters
                 plt.figure(figsize=(10, 6))
                 plt.scatter(
-                    [point[0] for point in data_points],
                     [point[1] for point in data_points],
+                    [point[0] for point in data_points],
                     c=cluster_ids,
                     cmap='viridis',
                     marker='o',
-                    alpha=0.6
+                    alpha=0.1,
+                    s=10
                 )
                 plt.title('DenStream Clusters')
-                plt.xlabel('Latitude')
-                plt.ylabel('Longitude')
+                plt.xlabel('Longitude')
+                plt.ylabel('Latitude')
                 plt.colorbar(label='Cluster ID')
-                plt.show()
+
+                # Save the plot as a PDF file
+                plt.savefig(f'plots/denstream_clusters_{all_data_stats.total_count}.pdf', format='pdf')
+                plt.close()
