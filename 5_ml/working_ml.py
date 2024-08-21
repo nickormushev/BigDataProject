@@ -52,7 +52,7 @@ def dask_xgboost(client, X_train, y_train, X_test, y_test):
 
     params = {
         'objective': 'multi:softmax' if num_class > 2 else 'binary:logistic',
-        'num_class': num_class,
+        'num_class': num_class if num_class > 2 else None,
         'learning_rate': 0.1,
         'max_depth': 6,
         #'n_estimators': 100
@@ -208,14 +208,14 @@ if __name__ == '__main__':
     y_test_da = y_test.repartition(npartitions=n_workers * multiplier).to_dask_array(lengths=True)
     
     # Running and comparing all models
-    #log_reg_accuracy, log_reg_train_time, log_reg_pred_time = dask_ml_logistic_regression(X_train_da, y_train_da, X_test_da, y_test_da)
-    #print(f"Dask-ML Logistic Regression - Accuracy: {log_reg_accuracy:.4f}, Train Time: {log_reg_train_time:.2f} sec, Prediction Time: {log_reg_pred_time:.2f} sec")
+    log_reg_accuracy, log_reg_train_time, log_reg_pred_time = dask_ml_logistic_regression(X_train_da, y_train_da, X_test_da, y_test_da)
+    print(f"Dask-ML Logistic Regression - Accuracy: {log_reg_accuracy:.4f}, Train Time: {log_reg_train_time:.2f} sec, Prediction Time: {log_reg_pred_time:.2f} sec")
 
     xgb_accuracy, xgb_train_time, xgb_pred_time = dask_xgboost(client, X_train_da, y_train_da, X_test_da, y_test_da)
     print(f"XGBoost - Accuracy: {xgb_accuracy:.4f}, Train Time: {xgb_train_time:.2f} sec, Prediction Time: {xgb_pred_time:.2f} sec")
 
-    #sgd_accuracy, sgd_train_time, sgd_pred_time = sklearn_sgd_partial_fit(X_train_da, y_train_da, X_test_da, y_test_da)
-    #print(f"SGD Classifier - Accuracy: {sgd_accuracy:.4f}, Train Time: {sgd_train_time:.2f} sec, Prediction Time: {sgd_pred_time:.2f} sec")
+    sgd_accuracy, sgd_train_time, sgd_pred_time = sklearn_sgd_partial_fit(X_train_da, y_train_da, X_test_da, y_test_da)
+    print(f"SGD Classifier - Accuracy: {sgd_accuracy:.4f}, Train Time: {sgd_train_time:.2f} sec, Prediction Time: {sgd_pred_time:.2f} sec")
     
     client.close()
     cluster.close()
@@ -226,5 +226,5 @@ if __name__ == '__main__':
 # Solving problem 1: Predicting high ticket days
 # Median ticket count: 8550.0
 # Dask-ML Logistic Regression - Accuracy: 0.5206, Train Time: 7977.60 sec, Prediction Time: 0.01 sec
-# XGBoost - Accuracy: 0.5437, Train Time: 6.92 sec, Prediction Time: 12.62 sec
+# XGBoost - Accuracy: 0.5437, Train Time: 63.91 sec, Prediction Time: 0.36 sec
 # SGD Classifier - Accuracy: 0.5178, Train Time: 913.01 sec, Prediction Time: 76.12 sec
