@@ -216,6 +216,7 @@ if __name__ == '__main__':
 
             df = df[features]
             df = df.dropna()
+
             df['street_code'] = df['street_code'].astype(int)
             
             df['violation_code'] = df['violation_code'].fillna(0).astype(int)
@@ -226,7 +227,7 @@ if __name__ == '__main__':
             df['vehicle_year'] = df['vehicle_year'].replace({0: None})
             df['vehicle_year'] = df['vehicle_year'].where(df['vehicle_year'] <= current_year, None)
             
-            df['unregistered_vehicle'] = df['unregistered_vehicle'].notna() & (df['unregistered_vehicle'] == '0')
+            df['unregistered_vehicle'] = (df['unregistered_vehicle'] != None) & (df['unregistered_vehicle'] == '0')
             df['unregistered_vehicle'] = df['unregistered_vehicle'].astype(int)
             df['feet_from_curb'] = df['feet_from_curb'].astype(int)
 
@@ -236,38 +237,51 @@ if __name__ == '__main__':
             df['hour'] = df['issue_date'].dt.hour
             df['hour'] = df['hour'].fillna(12)
 
-            df['vehicle_expiration_date'] = pd.to_datetime(df['vehicle_expiration_date'], format='%Y%m%d', errors='coerce')
+            df['vehicle_expiration_date'] = dd.to_datetime(df['vehicle_expiration_date'], format='%Y%m%d', errors='coerce')
             df['is_expired'] = df['vehicle_expiration_date'] < df['issue_date']
 
-            def check_plate_type(df):
+            def check_plate_type(data):
                 plate_types = "AGR Agricultural Vehicle MCD Motorcycle Dealer AMB Ambulance MCL Marine Corps League ARG Air National Guard MED Medical Doctor ATD All Terrain Deale MOT Motorcycle ATV All Terrain Vehicle NLM Naval Militia AYG Army National Guard NYA New York Assembly BOB Birthplace of Baseball NYC New York City Council BOT Boat NYS New York Senate CBS County Bd. of Supervisors OMF Omnibus Public Service CCK County Clerk OML Livery CHC  Household Carrier (Com) OMO Omnibus Out-of-State CLG County Legislators OMR Bus CMB Combination - Connecticut OMS Rental CME  Coroner Medical Examiner OMT Taxi CMH Congress. Medal of Honor OMV Omnibus Vanity COM Commercial Vehicle ORC Organization (Com) CSP Sports (Com) ORG Organization (Pas) DLR Dealer PAS Passenger EDU Educator PHS Pearl Harbor Survivors FAR Farm vehicle PPH Purple Heart FPW Former Prisoner of War PSD Political Subd. (Official) GAC Governor's Additional Car RGC Regional (Com) GFC Gift Certificate RGL Regional (Pas) GSC Governor's Second Car SCL School Car GSM Gold Star Mothers SNO Snowmobile HAC Ham Operator Comm SOS Survivors of the Shield HAM Ham Operator SPC Special Purpose Comm. HIF Special Reg.Hearse SPO Sports HIR Hearse Coach SRF Special Passenger - Vanity HIS Historical Vehicle SRN Special Passenger - Judges HOU House/Coach Trailer STA State Agencies HSM Historical Motorcycle STG State National Guard IRP Intl. Registration Plan SUP Justice Supreme Court ITP In Transit Permit TOW Tow Truck JCA Justice Court of Appeals TRA Transporter JCL Justice Court of Claims THC Household Carrier Tractor JSC Supreme Court Appl. Div TRC Tractor Regular JWV Jewish War Veterans TRL Trailer Regular LMA Class A Limited Use Mtrcyl. USC U. S. Congress LMB Class B Limited Use Mtrcyl. USS U. S. Senate LMC Class C Limited Use Mtrcyl. VAS Voluntary Ambulance Svc. LOC Locomotive VPL Van Pool LTR Light Trailer WUG World University Games LUA Limited Use Automobile"
                 plate_types = plate_types.split()
                 plate_types = [plate_id for plate_id in plate_types if plate_id.isupper() and len(plate_id) == 3]
-                df['plate_type'] = df['plate_type'].apply(lambda x: x if x in plate_types else None)
-                return df
+                data['plate_type'] = data['plate_type'].astype(str)
+                data['plate_type'] = data['plate_type'].fillna(' ')
+                data['plate_type'] = data['plate_type'].apply(lambda x: x if x in plate_types else ' ')
+                return data
 
-            df['plate_type'] = df['plate_type'].map_partitions(check_plate_type)
+            df = df.map_partitions(check_plate_type)
 
             # Assume the days of the week correspond to each character position
             days_of_week = ['parking_monday', 'parking_tuesday', 'parking_wednesday', 'parking_thursday', 'parking_friday', 'parking_saturday', 'parking_sunday']
 
             # Function to split the string into individual True/False values for each day
             def split_parking_days(parking_days):
-                if parking_days is None:
-                    return {day: False for day in days_of_week}
-
+                if pd.isna(parking_days):
+                    parking_days = ' ' * 7  # Set a default value if parking_days is NA
+    
                 parking_days = parking_days.replace(' ', 'B')
                 parking_days = parking_days.ljust(7, 'B')
                 return {day: (char == 'Y') for day, char in zip(days_of_week, parking_days)}
 
+            df['days_parking_in_effect'] = df['days_parking_in_effect'].fillna(' ')
+
+            # Apply the function to split days into True/False columns
             days_columns = df['days_parking_in_effect'].map_partitions(
-                lambda df: df.apply(split_parking_days, axis=1)
+                lambda partition: partition.apply(split_parking_days),
+                meta={day: 'int' for day in days_of_week}  # Define the metadata explicitly
             )
-            days_columns = days_columns.map_partitions(lambda data: data.apply(pd.Series))
-            df = df.join(days_columns)
+
+            # Convert the resulting series of dictionaries into separate columns
+            days_columns = days_columns.map_partitions(
+                lambda data: pd.DataFrame(list(data)), 
+                meta={day: 'int' for day in days_of_week}  # Ensure the output meta is defined
+            )
+            df = df.join(days_columns).reset_index(drop=True)
             
-            df = df[['violation_county', 'street_code', 'vehicle_year', 'plate_type', 'unregistered_vehicle', 'feet_from_curb', 'day_of_week', 'hour', 'is_expired', 'parking_monday', 'parking_tuesday', 'parking_wednesday', 'parking_thursday', 'parking_friday', 'parking_saturday', 'parking_sunday', 'violation_code']]
+            df = df[['violation_county', 'street_code', 'vehicle_year', 'plate_type', 'unregistered_vehicle', 'feet_from_curb', 'day_of_week', 'hour', 'is_expired', 'parking_monday', 'parking_tuesday', 'parking_wednesday', 'parking_thursday', 'parking_friday', 'parking_saturday', 'parking_sunday', 'violation_code']].reset_index(drop=True)
         
+            df = df.dropna(subset=['plate_type'])
+
             # Categories and encode features
             categorizer = Categorizer(columns=['violation_county', 'plate_type'])
             df = categorizer.fit_transform(df)
