@@ -32,16 +32,16 @@ try:
   ## Violation
   # Dates
   # Fist observation datetime
-  #dataset['time_first_observed'] = format_hour(dataset['time_first_observed'])
-#
-  ## Date first observed
-  #dataset['date_first_observed'] = dataset['date_first_observed'].replace({0: None, '0': None})
-  #dataset['date_first_observed'] = dataset['date_first_observed'].replace('0001-01-03T12:00:00.000', None)
-  #dataset['date_first_observed'] = dd.to_datetime(dataset['date_first_observed'], format='%Y%m%d', errors='coerce')
-  #
-  ## merge Datetime first observed
-  #dataset['date_first_observed'] = dd.to_datetime(dataset["date_first_observed"].dt.strftime('%Y-%m-%d') + ' ' + dataset["time_first_observed"].dt.strftime('%H:%M:%S'))
-  #dataset = dataset.drop(["time_first_observed"], axis=1)
+  dataset['time_first_observed'] = format_hour(dataset['time_first_observed'])
+
+  # Date first observed
+  dataset['date_first_observed'] = dataset['date_first_observed'].replace({0: None, '0': None})
+  dataset['date_first_observed'] = dataset['date_first_observed'].replace('0001-01-03T12:00:00.000', None)
+  dataset['date_first_observed'] = dd.to_datetime(dataset['date_first_observed'], format='%Y%m%d', errors='coerce')
+  
+  # merge Datetime first observed
+  dataset['date_first_observed'] = dd.to_datetime(dataset["date_first_observed"].dt.strftime('%Y-%m-%d') + ' ' + dataset["time_first_observed"].dt.strftime('%H:%M:%S'))
+  dataset = dataset.drop(["time_first_observed"], axis=1)
 
   # Issue date
   dataset['issue_date'] = dd.to_datetime(dataset["issue_date"], format="mixed")
@@ -110,10 +110,10 @@ try:
   dataset = dataset.drop(["street_code1", "street_code2", "street_code3"], axis=1)
 
   # Location is the same as violation_precint
-  #dataset = dataset.drop(["violation_location"], axis=1)
+  dataset = dataset.drop(["violation_location"], axis=1)
   
   ## Vehicle
-  #dataset['vehicle_make'] = dataset['vehicle_make'].str.upper()
+  dataset['vehicle_make'] = dataset['vehicle_make'].str.upper()
   
   # Dates
   current_year = 2024
@@ -145,34 +145,34 @@ try:
 
   # Plate ID
   # Upper case, not blank plate, between 5 and 8 characters, only letters and numbers
-  #dataset['plate_id'] = dataset['plate_id'].str.upper()
-  #dataset['plate_id'] = dataset['plate_id'].replace('BLANKPLATE', None)
-  #dataset['plate_id'] = dataset['plate_id'].where(dataset['plate_id'].str.len() >= 5, None)
-  #dataset['plate_id'] = dataset['plate_id'].where(dataset['plate_id'].str.len() <= 8, None)
-  #dataset['plate_id'] = dataset['plate_id'].where(dataset['plate_id'].str.match(r'^[A-Z0-9]*$'), None)
+  dataset['plate_id'] = dataset['plate_id'].str.upper()
+  dataset['plate_id'] = dataset['plate_id'].replace('BLANKPLATE', None)
+  dataset['plate_id'] = dataset['plate_id'].where(dataset['plate_id'].str.len() >= 5, None)
+  dataset['plate_id'] = dataset['plate_id'].where(dataset['plate_id'].str.len() <= 8, None)
+  dataset['plate_id'] = dataset['plate_id'].where(dataset['plate_id'].str.match(r'^[A-Z0-9]*$'), None)
+  
+  # Issuer and law
+  dataset['issuer_precinct'] = dataset['issuer_precinct'].astype(int)
+  dataset['issuer_precinct'] = dataset['issuer_precinct'].replace({0: None, '0': None})
+  dataset['issuer_code'] = dataset['issuer_code'].astype(int)
+  dataset['issuer_code'] = dataset['issuer_code'].replace({0: None, '0': None})
 
-  ## Issuer and law
-  #dataset['issuer_precinct'] = dataset['issuer_precinct'].astype(int)
-  #dataset['issuer_precinct'] = dataset['issuer_precinct'].replace({0: None, '0': None})
-  #dataset['issuer_code'] = dataset['issuer_code'].astype(int)
-  #dataset['issuer_code'] = dataset['issuer_code'].replace({0: None, '0': None})
-#
-  #dataset['law_section'] = dataset['law_section'].astype(int)
-  #dataset['law_section'] = dataset['law_section'].replace({0: None, '0': None})
+  dataset['law_section'] = dataset['law_section'].astype(int)
+  dataset['law_section'] = dataset['law_section'].replace({0: None, '0': None})
 
   # parking days
   dataset['days_parking_in_effect'] = dataset['days_parking_in_effect'].fillna('')
   dataset['days_parking_in_effect'] = dataset['days_parking_in_effect'].map_partitions(lambda x: x.apply(pad_parking_days))
 
   # hours in effect
-  #dataset['from_hours_in_effect'] = format_hour(dataset['from_hours_in_effect']).dt.time
-  #dataset['to_hours_in_effect'] = format_hour(dataset['to_hours_in_effect']).dt.time
+  dataset['from_hours_in_effect'] = format_hour(dataset['from_hours_in_effect']).dt.time
+  dataset['to_hours_in_effect'] = format_hour(dataset['to_hours_in_effect']).dt.time
   
   # unregistered vehicle
   dataset['unregistered_vehicle'] = dataset['unregistered_vehicle'].notna() & (dataset['unregistered_vehicle'] == '0')
-  #dataset['unregistered_vehicle'] = dataset['unregistered_vehicle'].astype(int) 
+  dataset['unregistered_vehicle'] = dataset['unregistered_vehicle'].astype(int) 
   
-  #dataset['meter_number'] = dataset['meter_number'].replace({'0': None, 0: None})
+  dataset['meter_number'] = dataset['meter_number'].replace({'0': None, 0: None})
 
   # compute
   dataset = dataset.persist()
