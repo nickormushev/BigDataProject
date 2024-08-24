@@ -328,7 +328,7 @@ if __name__ == '__main__':
 
 ## RESULTS
 
-# Solving problem 1: Predicting high ticket days
+# Solving problem 1: Predicting high ticket days (with only month and day of week)
 # Median ticket count: 8550.0
 # Dask-ML Logistic Regression - Accuracy: 0.5206, Train Time: 7977.60 sec, Prediction Time: 0.01 sec
 # XGBoost - Accuracy: 0.5437, Train Time: 63.91 sec, Prediction Time: 0.36 sec
